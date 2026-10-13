@@ -211,17 +211,25 @@
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-
-        // --- 2. GESTION DES ONGLETS ---
+	// --- 2. GESTION DES ONGLETS ---
         function showTab(tabName) {
+            // 1. On cache tous les contenus
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            
+            // 2. On réinitialise et on met à jour la couleur des boutons
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('bg-blue-900', 'font-medium');
                 btn.classList.add('hover:bg-blue-700');
+                
+                // Si c'est le bouton sur lequel on vient de cliquer
+                if(btn.getAttribute('onclick').includes(tabName)) {
+                    btn.classList.remove('hover:bg-blue-700');
+                    btn.classList.add('bg-blue-900', 'font-medium');
+                }
             });
+            
+            // 3. On affiche le bon contenu
             document.getElementById(`${tabName}-tab`).classList.remove('hidden');
-            event.currentTarget.classList.remove('hover:bg-blue-700');
-            event.currentTarget.classList.add('bg-blue-900', 'font-medium');
         }
 
         // --- 3. GESTION DES MODALES ---
