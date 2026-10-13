@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tableau de bord AMSFI</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+</head>
+<body class="bg-gray-100 flex flex-col md:flex-row min-h-screen font-sans">
+
+    <!-- Menu de navigation (Mobile : Haut, Bureau : Gauche) -->
+    <nav class="bg-blue-800 text-white w-full md:w-64 flex md:flex-col justify-between md:justify-start shadow-lg z-10">
+        <div class="p-4 font-bold text-xl flex items-center gap-3">
+            <i class="fas fa-stethoscope"></i> AMSFI
+        </div>
+        <div class="flex md:flex-col overflow-x-auto w-full md:w-auto p-2 md:p-0 space-x-2 md:space-x-0">
+            <button onclick="showTab('events')" class="tab-btn flex-shrink-0 w-full text-left px-4 py-3 bg-blue-900 md:rounded-none rounded-lg font-medium"><i class="fas fa-glass-cheers w-6"></i> Événements</button>
+            <button onclick="showTab('agenda')" class="tab-btn flex-shrink-0 w-full text-left px-4 py-3 hover:bg-blue-700 md:rounded-none rounded-lg"><i class="fas fa-calendar-alt w-6"></i> Agenda Examens</button>
+            <button onclick="showTab('participants')" class="tab-btn flex-shrink-0 w-full text-left px-4 py-3 hover:bg-blue-700 md:rounded-none rounded-lg"><i class="fas fa-users w-6"></i> Participants</button>
+        </div>
+    </nav>
+
+    <!-- Contenu principal -->
+    <main class="flex-1 p-4 md:p-8 w-full max-w-full overflow-hidden">
+        
+        <!-- ONGLET EVENEMENTS -->
+        <div id="events-tab" class="tab-content">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-800">Soirées & Événements</h1>
+                <button onclick="openModal('eventModal')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"><i class="fas fa-plus mr-2"></i>Créer</button>
+            </div>
+            <div class="bg-white rounded-lg shadow overflow-x-auto">
+                <table class="w-full text-left whitespace-nowrap">
+                    <thead class="bg-gray-50 text-gray-600">
+                        <tr>
+                            <th class="p-4">Nom de la soirée</th>
+                            <th class="p-4">Date</th>
+                            <th class="p-4">Lieu</th>
+                            <th class="p-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eventsList" class="divide-y">
+                        <!-- Rempli par Firebase -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ONGLET AGENDA EXAMENS -->
+        <div id="agenda-tab" class="tab-content hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-800">Agenda des Examens</h1>
+                <button onclick="openModal('examModal')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"><i class="fas fa-plus mr-2"></i>Ajouter</button>
+            </div>
+            <div class="bg-white rounded-lg shadow overflow-x-auto">
+                <table class="w-full text-left whitespace-nowrap">
+                    <thead class="bg-gray-50 text-gray-600">
+                        <tr>
+                            <th class="p-4">Matière</th>
+                            <th class="p-4">Date & Heure</th>
+                            <th class="p-4">Promo</th>
+                            <th class="p-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="examsList" class="divide-y">
+                        <!-- Rempli par Firebase -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ONGLET PARTICIPANTS -->
+        <div id="participants-tab" class="tab-content hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-800">Liste des Entrées</h1>
+                <button onclick="openModal('participantModal')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"><i class="fas fa-plus mr-2"></i>Ajouter</button>
+            </div>
+            <div class="bg-white rounded-lg shadow overflow-x-auto">
+                <table class="w-full text-left whitespace-nowrap">
+                    <thead class="bg-gray-50 text-gray-600">
+                        <tr>
+                            <th class="p-4">Nom & Prénom</th>
+                            <th class="p-4">Promo</th>
+                            <th class="p-4">Téléphone</th>
+                            <th class="p-4">Événement</th>
+                            <th class="p-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="participantsList" class="divide-y">
+                        <!-- Rempli par Firebase -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- FENÊTRE MODALE : ÉVÉNEMENTS (Adaptée Mobile) -->
+    <div id="eventModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+        <!-- Les classes max-h-[85vh], overflow-y-auto et pb-24 règlent le bug du clavier sur mobile -->
+        <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[85vh] overflow-y-auto pb-24 relative">
+            <h2 class="text-xl font-bold mb-4" id="eventModalTitle">Créer une soirée</h2>
+            <input type="hidden" id="eventId">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Nom</label>
+                    <input type="text" id="eventName" class="w-full border rounded p-2" placeholder="Gala AMSFI...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Date</label>
+                    <input type="date" id="eventDate" class="w-full border rounded p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Lieu</label>
+                    <input type="text" id="eventLocation" class="w-full border rounded p-2" placeholder="Club / Salle...">
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button onclick="closeModal('eventModal')" class="px-4 py-2 bg-gray-200 rounded">Annuler</button>
+                    <button onclick="saveEvent()" class="px-4 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FENÊTRE MODALE : EXAMENS (Adaptée Mobile) -->
+    <div id="examModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[85vh] overflow-y-auto pb-24 relative">
+            <h2 class="text-xl font-bold mb-4" id="examModalTitle">Ajouter un examen</h2>
+            <input type="hidden" id="examId">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Matière</label>
+                    <input type="text" id="examSubject" class="w-full border rounded p-2" placeholder="Anatomie, Bioch...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Date et Heure</label>
+                    <input type="datetime-local" id="examDate" class="w-full border rounded p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Promo concernée</label>
+                    <select id="examPromo" class="w-full border rounded p-2">
+                        <option value="MG1">MG1</option>
+                        <option value="MG2">MG2</option>
+                        <option value="MG3">MG3</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button onclick="closeModal('examModal')" class="px-4 py-2 bg-gray-200 rounded">Annuler</button>
+                    <button onclick="saveExam()" class="px-4 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FENÊTRE MODALE : PARTICIPANTS (Adaptée Mobile) -->
+    <div id="participantModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[85vh] overflow-y-auto pb-24 relative">
+            <h2 class="text-xl font-bold mb-4" id="participantModalTitle">Ajouter un participant</h2>
+            <input type="hidden" id="participantId">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Prénom & Nom</label>
+                    <input type="text" id="partName" class="w-full border rounded p-2" placeholder="Jean Dupont">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Promo</label>
+                    <select id="partPromo" class="w-full border rounded p-2">
+                        <option value="MG1">MG1</option>
+                        <option value="MG2">MG2</option>
+                        <option value="MG3">MG3</option>
+                        <option value="Autre">Autre</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Téléphone</label>
+                    <input type="tel" id="partPhone" class="w-full border rounded p-2" placeholder="+33 6...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Événement ciblé</label>
+                    <select id="partEvent" class="w-full border rounded p-2">
+                        <option value="Gala Intégration">Gala Intégration</option>
+                        <!-- À lier dynamiquement avec la liste des événements si besoin -->
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 mt-6">
+                    <button onclick="closeModal('participantModal')" class="px-4 py-2 bg-gray-200 rounded">Annuler</button>
+                    <button onclick="saveParticipant()" class="px-4 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts et Logique -->
+    <script>
+        // --- 1. CONFIGURATION FIREBASE (À REMPLACER PAR VOS CLÉS) ---
+        const firebaseConfig = {
+  		apiKey: "AIzaSyD2igKlkJF4WyKfRrfwKTikBrUcyMj6ZY4",
+  		authDomain: "amsfi-dashboard.firebaseapp.com",
+  		databaseURL: "https://amsfi-dashboard-default-rtdb.europe-west1.firebasedatabase.app",
+  		projectId: "amsfi-dashboard",
+  		storageBucket: "amsfi-dashboard.firebasestorage.app",
+  		messagingSenderId: "163059616408",
+  		appId: "1:163059616408:web:b00e0bb58a00dd70e85eed",
+  		measurementId: "G-8XKW9CFXSY"
+};
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // --- 2. GESTION DES ONGLETS ---
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-900', 'font-medium');
+                btn.classList.add('hover:bg-blue-700');
+            });
+            document.getElementById(`${tabName}-tab`).classList.remove('hidden');
+            event.currentTarget.classList.remove('hover:bg-blue-700');
+            event.currentTarget.classList.add('bg-blue-900', 'font-medium');
+        }
+
+        // --- 3. GESTION DES MODALES ---
+        function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            clearForms();
+        }
+        function clearForms() {
+            document.querySelectorAll('input').forEach(input => input.value = '');
+        }
+
+        // --- 4. CRUD EVENEMENTS ---
+        function saveEvent() {
+            const id = document.getElementById('eventId').value || Date.now().toString();
+            const data = {
+                name: document.getElementById('eventName').value,
+                date: document.getElementById('eventDate').value,
+                location: document.getElementById('eventLocation').value
+            };
+            db.ref('events/' + id).set(data).then(() => closeModal('eventModal'));
+        }
+        function deleteEvent(id) {
+            if(confirm('Supprimer cet événement définitivement ?')) {
+                db.ref('events/' + id).remove();
+            }
+        }
+
+        // --- 5. CRUD EXAMENS ---
+        function saveExam() {
+            const id = document.getElementById('examId').value || Date.now().toString();
+            const data = {
+                subject: document.getElementById('examSubject').value,
+                date: document.getElementById('examDate').value,
+                promo: document.getElementById('examPromo').value
+            };
+            db.ref('exams/' + id).set(data).then(() => closeModal('examModal'));
+        }
+        function deleteExam(id) {
+            if(confirm('Supprimer cet examen de l\'agenda ?')) {
+                db.ref('exams/' + id).remove();
+            }
+        }
+
+        // --- 6. CRUD PARTICIPANTS ---
+        function saveParticipant() {
+            const id = document.getElementById('participantId').value || Date.now().toString();
+            const data = {
+                name: document.getElementById('partName').value,
+                promo: document.getElementById('partPromo').value,
+                phone: document.getElementById('partPhone').value,
+                event: document.getElementById('partEvent').value
+            };
+            db.ref('participants/' + id).set(data).then(() => closeModal('participantModal'));
+        }
+        function deleteParticipant(id) {
+            if(confirm('Retirer cette personne de la liste ?')) {
+                db.ref('participants/' + id).remove();
+            }
+        }
+
+        // --- 7. ECOUTEURS FIREBASE (SYNCHRONISATION TEMPS REEL) ---
+        // Écoute des événements
+        db.ref('events').on('value', (snapshot) => {
+            const tbody = document.getElementById('eventsList');
+            tbody.innerHTML = '';
+            snapshot.forEach((child) => {
+                const data = child.val();
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-4">${data.name}</td>
+                        <td class="p-4">${data.date}</td>
+                        <td class="p-4">${data.location}</td>
+                        <td class="p-4">
+                            <button onclick="deleteEvent('${child.key}')" class="text-red-600 hover:text-red-800 p-2"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+        });
+
+        // Écoute des examens
+        db.ref('exams').on('value', (snapshot) => {
+            const tbody = document.getElementById('examsList');
+            tbody.innerHTML = '';
+            snapshot.forEach((child) => {
+                const data = child.val();
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-4 font-medium">${data.subject}</td>
+                        <td class="p-4">${data.date.replace('T', ' à ')}</td>
+                        <td class="p-4"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">${data.promo}</span></td>
+                        <td class="p-4">
+                            <button onclick="deleteExam('${child.key}')" class="text-red-600 hover:text-red-800 p-2"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+        });
+
+        // Écoute des participants
+        db.ref('participants').on('value', (snapshot) => {
+            const tbody = document.getElementById('participantsList');
+            tbody.innerHTML = '';
+            snapshot.forEach((child) => {
+                const data = child.val();
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-4">${data.name}</td>
+                        <td class="p-4">${data.promo}</td>
+                        <td class="p-4">${data.phone}</td>
+                        <td class="p-4">${data.event}</td>
+                        <td class="p-4">
+                            <button onclick="deleteParticipant('${child.key}')" class="text-red-600 hover:text-red-800 p-2"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+        });
+    </script>
+</body>
+</html>
