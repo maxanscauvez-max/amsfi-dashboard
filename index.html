@@ -5,8 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tableau de bord AMSFI</title>
     
+    <!-- Bibliothèques Design & Icônes -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Bibliothèque Calendrier (FullCalendar) -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -14,7 +18,7 @@
 </head>
 <body class="bg-gray-100 flex flex-col md:flex-row min-h-screen font-sans">
 
-    <!-- Menu de navigation (Mobile : Haut, Bureau : Gauche) -->
+    <!-- Menu de navigation -->
     <nav class="bg-blue-800 text-white w-full md:w-64 flex md:flex-col justify-between md:justify-start shadow-lg z-10">
         <div class="p-4 font-bold text-xl flex items-center gap-3">
             <i class="fas fa-stethoscope"></i> AMSFI
@@ -33,7 +37,7 @@
         <div id="events-tab" class="tab-content">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-2xl font-bold text-gray-800">Soirées & Événements</h1>
-                <button onclick="openModal('eventModal')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"><i class="fas fa-plus mr-2"></i>Créer</button>
+                <button onclick="openModal('eventModal')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"><i class="fas fa-plus mr-2"></i> Créer</button>
             </div>
             <div class="bg-white rounded-lg shadow overflow-x-auto">
                 <table class="w-full text-left whitespace-nowrap">
@@ -42,6 +46,7 @@
                             <th class="p-4">Nom de la soirée</th>
                             <th class="p-4">Date</th>
                             <th class="p-4">Lieu</th>
+                            <th class="p-4">Créneaux</th>
                             <th class="p-4">Actions</th>
                         </tr>
                     </thead>
@@ -53,12 +58,18 @@
         </div>
 
         <!-- ONGLET AGENDA EXAMENS -->
-        <div id="agenda-tab" class="tab-content hidden">
-            <div class="flex justify-between items-center mb-6">
+        <div id="agenda-tab" class="tab-content hidden flex flex-col h-full">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h1 class="text-2xl font-bold text-gray-800">Agenda des Examens</h1>
-                <button onclick="openModal('examModal')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"><i class="fas fa-plus mr-2"></i>Ajouter</button>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button onclick="toggleAgendaView('list')" id="btn-view-list" class="flex-1 md:flex-none bg-blue-900 text-white px-4 py-2 rounded shadow"><i class="fas fa-list mr-2"></i>Liste</button>
+                    <button onclick="toggleAgendaView('calendar')" id="btn-view-calendar" class="flex-1 md:flex-none bg-gray-200 text-gray-700 px-4 py-2 rounded shadow hover:bg-gray-300"><i class="fas fa-calendar-alt mr-2"></i>Calendrier</button>
+                    <button onclick="openModal('examModal')" class="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"><i class="fas fa-plus mr-2"></i>Ajouter</button>
+                </div>
             </div>
-            <div class="bg-white rounded-lg shadow overflow-x-auto">
+            
+            <!-- Vue Liste -->
+            <div id="agenda-list-view" class="bg-white rounded-lg shadow overflow-x-auto">
                 <table class="w-full text-left whitespace-nowrap">
                     <thead class="bg-gray-50 text-gray-600">
                         <tr>
@@ -73,13 +84,18 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Vue Calendrier -->
+            <div id="agenda-calendar-view" class="bg-white rounded-lg shadow p-4 hidden flex-1 min-h-[500px]">
+                <div id="calendar"></div>
+            </div>
         </div>
 
         <!-- ONGLET PARTICIPANTS -->
         <div id="participants-tab" class="tab-content hidden">
             <div class="flex justify-between items-center mb-6">
                 <h1 class="text-2xl font-bold text-gray-800">Liste des Entrées</h1>
-                <button onclick="openModal('participantModal')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"><i class="fas fa-plus mr-2"></i>Ajouter</button>
+                <button onclick="openModal('participantModal')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"><i class="fas fa-plus mr-2"></i> Ajouter</button>
             </div>
             <div class="bg-white rounded-lg shadow overflow-x-auto">
                 <table class="w-full text-left whitespace-nowrap">
@@ -100,16 +116,15 @@
         </div>
     </main>
 
-    <!-- FENÊTRE MODALE : ÉVÉNEMENTS (Adaptée Mobile) -->
+    <!-- FENÊTRE MODALE : ÉVÉNEMENTS -->
     <div id="eventModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
-        <!-- Les classes max-h-[85vh], overflow-y-auto et pb-24 règlent le bug du clavier sur mobile -->
         <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[85vh] overflow-y-auto pb-24 relative">
-            <h2 class="text-xl font-bold mb-4" id="eventModalTitle">Créer une soirée</h2>
+            <h2 class="text-xl font-bold mb-4">Créer / Modifier une soirée</h2>
             <input type="hidden" id="eventId">
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium mb-1">Nom</label>
-                    <input type="text" id="eventName" class="w-full border rounded p-2" placeholder="Gala AMSFI...">
+                    <input type="text" id="eventName" class="w-full border rounded p-2" placeholder="Ex: Gala de fin d'année">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Date</label>
@@ -117,7 +132,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Lieu</label>
-                    <input type="text" id="eventLocation" class="w-full border rounded p-2" placeholder="Club / Salle...">
+                    <input type="text" id="eventLocation" class="w-full border rounded p-2" placeholder="Ex: Salle des fêtes">
                 </div>
                 <div class="flex justify-end gap-2 mt-6">
                     <button onclick="closeModal('eventModal')" class="px-4 py-2 bg-gray-200 rounded">Annuler</button>
@@ -127,10 +142,44 @@
         </div>
     </div>
 
-    <!-- FENÊTRE MODALE : EXAMENS (Adaptée Mobile) -->
+    <!-- FENÊTRE MODALE : CRÉNEAUX (PRÉVENTES & ENTRÉES) -->
+    <div id="slotsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto pb-24 relative">
+            <h2 class="text-xl font-bold mb-4" id="slotsModalTitle">Gérer les créneaux</h2>
+            <input type="hidden" id="slotEventId">
+            
+            <!-- Formulaire d'ajout -->
+            <div class="bg-gray-50 p-4 rounded mb-6 border">
+                <h3 class="font-semibold mb-2 text-sm">Ajouter un créneau</h3>
+                <div class="flex flex-col md:flex-row gap-2">
+                    <select id="slotType" class="border rounded p-2 flex-1">
+                        <option value="Prévente">Prévente</option>
+                        <option value="Entrée">Entrée (Portes)</option>
+                    </select>
+                    <input type="time" id="slotStart" class="border rounded p-2 flex-1" title="Heure de début">
+                    <input type="time" id="slotEnd" class="border rounded p-2 flex-1" title="Heure de fin">
+                    <button onclick="saveSlot()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700">Ajouter</button>
+                </div>
+            </div>
+
+            <!-- Liste des créneaux -->
+            <div>
+                <h3 class="font-semibold mb-2 text-sm">Créneaux actuels :</h3>
+                <ul id="slotsList" class="space-y-2">
+                    <!-- Rempli dynamiquement -->
+                </ul>
+            </div>
+            
+            <div class="flex justify-end gap-2 mt-6">
+                <button onclick="closeModal('slotsModal')" class="px-4 py-2 bg-blue-600 text-white rounded">Terminer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FENÊTRE MODALE : EXAMENS -->
     <div id="examModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[85vh] overflow-y-auto pb-24 relative">
-            <h2 class="text-xl font-bold mb-4" id="examModalTitle">Ajouter un examen</h2>
+            <h2 class="text-xl font-bold mb-4">Ajouter / Modifier un examen</h2>
             <input type="hidden" id="examId">
             <div class="space-y-4">
                 <div>
@@ -142,12 +191,9 @@
                     <input type="datetime-local" id="examDate" class="w-full border rounded p-2">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1">Promo concernée</label>
-                    <select id="examPromo" class="w-full border rounded p-2">
-                        <option value="MG1">MG1</option>
-                        <option value="MG2">MG2</option>
-                        <option value="MG3">MG3</option>
-                    </select>
+                    <!-- CHAMP TEXTE AU LIEU DU MENU DÉROULANT -->
+                    <label class="block text-sm font-medium mb-1">Promo(s) concernée(s)</label>
+                    <input type="text" id="examPromo" class="w-full border rounded p-2" placeholder="Ex: MG1, Dentaire 2A...">
                 </div>
                 <div class="flex justify-end gap-2 mt-6">
                     <button onclick="closeModal('examModal')" class="px-4 py-2 bg-gray-200 rounded">Annuler</button>
@@ -157,10 +203,10 @@
         </div>
     </div>
 
-    <!-- FENÊTRE MODALE : PARTICIPANTS (Adaptée Mobile) -->
+    <!-- FENÊTRE MODALE : PARTICIPANTS -->
     <div id="participantModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-lg p-6 w-full max-w-md max-h-[85vh] overflow-y-auto pb-24 relative">
-            <h2 class="text-xl font-bold mb-4" id="participantModalTitle">Ajouter un participant</h2>
+            <h2 class="text-xl font-bold mb-4">Ajouter / Modifier un participant</h2>
             <input type="hidden" id="participantId">
             <div class="space-y-4">
                 <div>
@@ -168,13 +214,9 @@
                     <input type="text" id="partName" class="w-full border rounded p-2" placeholder="Jean Dupont">
                 </div>
                 <div>
+                    <!-- CHAMP TEXTE AU LIEU DU MENU DÉROULANT -->
                     <label class="block text-sm font-medium mb-1">Promo</label>
-                    <select id="partPromo" class="w-full border rounded p-2">
-                        <option value="MG1">MG1</option>
-                        <option value="MG2">MG2</option>
-                        <option value="MG3">MG3</option>
-                        <option value="Autre">Autre</option>
-                    </select>
+                    <input type="text" id="partPromo" class="w-full border rounded p-2" placeholder="Ex: MG1">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Téléphone</label>
@@ -182,10 +224,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Événement ciblé</label>
-                    <select id="partEvent" class="w-full border rounded p-2">
-                        <option value="Gala Intégration">Gala Intégration</option>
-                        <!-- À lier dynamiquement avec la liste des événements si besoin -->
-                    </select>
+                    <input type="text" id="partEvent" class="w-full border rounded p-2" placeholder="Nom de la soirée">
                 </div>
                 <div class="flex justify-end gap-2 mt-6">
                     <button onclick="closeModal('participantModal')" class="px-4 py-2 bg-gray-200 rounded">Annuler</button>
@@ -195,7 +234,6 @@
         </div>
     </div>
 
-    <!-- Scripts et Logique -->
     <script>
         // --- 1. CONFIGURATION FIREBASE (À REMPLACER PAR VOS CLÉS) ---
         const firebaseConfig = {
@@ -211,35 +249,112 @@
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-	// --- 2. GESTION DES ONGLETS ---
+
+        // Variables pour stocker les données localement et faciliter la modification
+        let localEvents = {};
+        let localExams = {};
+        let localParticipants = {};
+        let calendarInstance = null;
+
+        // --- 2. GESTION DES ONGLETS (Sécurisée Mobile) ---
         function showTab(tabName) {
-            // 1. On cache tous les contenus
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.getElementById('events-tab').classList.add('hidden');
+            document.getElementById('agenda-tab').classList.add('hidden');
+            document.getElementById('participants-tab').classList.add('hidden');
             
-            // 2. On réinitialise et on met à jour la couleur des boutons
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.remove('bg-blue-900', 'font-medium');
                 btn.classList.add('hover:bg-blue-700');
-                
-                // Si c'est le bouton sur lequel on vient de cliquer
+            });
+            
+            document.getElementById(tabName + '-tab').classList.remove('hidden');
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => {
                 if(btn.getAttribute('onclick').includes(tabName)) {
                     btn.classList.remove('hover:bg-blue-700');
                     btn.classList.add('bg-blue-900', 'font-medium');
                 }
             });
-            
-            // 3. On affiche le bon contenu
-            document.getElementById(`${tabName}-tab`).classList.remove('hidden');
+
+            // Initialiser ou rafraîchir le calendrier si on ouvre l'agenda
+            if(tabName === 'agenda') {
+                setTimeout(initCalendar, 100);
+            }
         }
 
-        // --- 3. GESTION DES MODALES ---
-        function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
+        // --- GESTION VUES AGENDA (Liste / Calendrier) ---
+        function toggleAgendaView(view) {
+            const listEl = document.getElementById('agenda-list-view');
+            const calEl = document.getElementById('agenda-calendar-view');
+            const btnList = document.getElementById('btn-view-list');
+            const btnCal = document.getElementById('btn-view-calendar');
+
+            if (view === 'list') {
+                listEl.classList.remove('hidden');
+                calEl.classList.add('hidden');
+                btnList.classList.replace('bg-gray-200', 'bg-blue-900');
+                btnList.classList.replace('text-gray-700', 'text-white');
+                btnCal.classList.replace('bg-blue-900', 'bg-gray-200');
+                btnCal.classList.replace('text-white', 'text-gray-700');
+            } else {
+                listEl.classList.add('hidden');
+                calEl.classList.remove('hidden');
+                btnCal.classList.replace('bg-gray-200', 'bg-blue-900');
+                btnCal.classList.replace('text-gray-700', 'text-white');
+                btnList.classList.replace('bg-blue-900', 'bg-gray-200');
+                btnList.classList.replace('text-white', 'text-gray-700');
+                if (calendarInstance) calendarInstance.render(); // Force le recalcul de la taille
+            }
+        }
+
+        function initCalendar() {
+            if (calendarInstance) {
+                calendarInstance.render();
+                return;
+            }
+            var calendarEl = document.getElementById('calendar');
+            calendarInstance = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'fr',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,listWeek'
+                },
+                buttonText: {
+                    today: "Aujourd'hui",
+                    month: 'Mois',
+                    week: 'Semaine',
+                    list: 'Liste'
+                },
+                events: getCalendarEvents()
+            });
+            calendarInstance.render();
+        }
+
+        function getCalendarEvents() {
+            const events = [];
+            for (let id in localExams) {
+                events.push({
+                    id: id,
+                    title: localExams[id].subject + ' (' + localExams[id].promo + ')',
+                    start: localExams[id].date
+                });
+            }
+            return events;
+        }
+
+        // --- 3. GESTION DES MODALES ET FORMULAIRES ---
+        function openModal(modalId) { 
+            document.getElementById(modalId).classList.remove('hidden'); 
+        }
         function closeModal(modalId) {
             document.getElementById(modalId).classList.add('hidden');
-            clearForms();
+            if(modalId !== 'slotsModal') clearForms();
         }
         function clearForms() {
-            document.querySelectorAll('input').forEach(input => input.value = '');
+            document.querySelectorAll('input:not([type="hidden"])').forEach(input => input.value = '');
+            document.querySelectorAll('input[type="hidden"]').forEach(input => input.value = '');
         }
 
         // --- 4. CRUD EVENEMENTS ---
@@ -248,13 +363,65 @@
             const data = {
                 name: document.getElementById('eventName').value,
                 date: document.getElementById('eventDate').value,
-                location: document.getElementById('eventLocation').value
+                location: document.getElementById('eventLocation').value,
+                slots: localEvents[id] ? localEvents[id].slots : null // Conserver les créneaux existants
             };
             db.ref('events/' + id).set(data).then(() => closeModal('eventModal'));
         }
+        function editEvent(id) {
+            const ev = localEvents[id];
+            document.getElementById('eventId').value = id;
+            document.getElementById('eventName').value = ev.name;
+            document.getElementById('eventDate').value = ev.date;
+            document.getElementById('eventLocation').value = ev.location;
+            openModal('eventModal');
+        }
         function deleteEvent(id) {
-            if(confirm('Supprimer cet événement définitivement ?')) {
-                db.ref('events/' + id).remove();
+            if(confirm('Supprimer cet événement définitivement ?')) db.ref('events/' + id).remove();
+        }
+
+        // --- GESTION DES CRÉNEAUX ---
+        function openSlotsModal(id) {
+            const ev = localEvents[id];
+            document.getElementById('slotEventId').value = id;
+            document.getElementById('slotsModalTitle').innerText = "Créneaux : " + ev.name;
+            renderSlotsList(id);
+            openModal('slotsModal');
+        }
+        function saveSlot() {
+            const eventId = document.getElementById('slotEventId').value;
+            const slotId = Date.now().toString();
+            const data = {
+                type: document.getElementById('slotType').value,
+                start: document.getElementById('slotStart').value,
+                end: document.getElementById('slotEnd').value
+            };
+            if(data.start && data.end) {
+                db.ref(`events/${eventId}/slots/${slotId}`).set(data);
+                document.getElementById('slotStart').value = '';
+                document.getElementById('slotEnd').value = '';
+            }
+        }
+        function deleteSlot(eventId, slotId) {
+            db.ref(`events/${eventId}/slots/${slotId}`).remove();
+        }
+        function renderSlotsList(eventId) {
+            const slotsContainer = document.getElementById('slotsList');
+            slotsContainer.innerHTML = '';
+            const slots = localEvents[eventId]?.slots || {};
+            
+            if(Object.keys(slots).length === 0) {
+                slotsContainer.innerHTML = '<li class="text-gray-500 text-sm">Aucun créneau enregistré.</li>';
+                return;
+            }
+
+            for(let slotId in slots) {
+                const s = slots[slotId];
+                slotsContainer.innerHTML += `
+                    <li class="flex justify-between items-center bg-white p-2 rounded border">
+                        <span><strong>${s.type}</strong> : ${s.start} - ${s.end}</span>
+                        <button onclick="deleteSlot('${eventId}', '${slotId}')" class="text-red-600 hover:text-red-800"><i class="fas fa-times"></i></button>
+                    </li>`;
             }
         }
 
@@ -268,10 +435,16 @@
             };
             db.ref('exams/' + id).set(data).then(() => closeModal('examModal'));
         }
+        function editExam(id) {
+            const ex = localExams[id];
+            document.getElementById('examId').value = id;
+            document.getElementById('examSubject').value = ex.subject;
+            document.getElementById('examDate').value = ex.date;
+            document.getElementById('examPromo').value = ex.promo;
+            openModal('examModal');
+        }
         function deleteExam(id) {
-            if(confirm('Supprimer cet examen de l\'agenda ?')) {
-                db.ref('exams/' + id).remove();
-            }
+            if(confirm('Supprimer cet examen de l\'agenda ?')) db.ref('exams/' + id).remove();
         }
 
         // --- 6. CRUD PARTICIPANTS ---
@@ -285,66 +458,88 @@
             };
             db.ref('participants/' + id).set(data).then(() => closeModal('participantModal'));
         }
+        function editParticipant(id) {
+            const p = localParticipants[id];
+            document.getElementById('participantId').value = id;
+            document.getElementById('partName').value = p.name;
+            document.getElementById('partPromo').value = p.promo;
+            document.getElementById('partPhone').value = p.phone;
+            document.getElementById('partEvent').value = p.event;
+            openModal('participantModal');
+        }
         function deleteParticipant(id) {
-            if(confirm('Retirer cette personne de la liste ?')) {
-                db.ref('participants/' + id).remove();
-            }
+            if(confirm('Retirer cette personne de la liste ?')) db.ref('participants/' + id).remove();
         }
 
-        // --- 7. ECOUTEURS FIREBASE (SYNCHRONISATION TEMPS REEL) ---
-        // Écoute des événements
+        // --- 7. ECOUTEURS FIREBASE ---
         db.ref('events').on('value', (snapshot) => {
+            localEvents = snapshot.val() || {};
             const tbody = document.getElementById('eventsList');
             tbody.innerHTML = '';
-            snapshot.forEach((child) => {
-                const data = child.val();
+            for (let id in localEvents) {
+                const data = localEvents[id];
+                const slotsCount = data.slots ? Object.keys(data.slots).length : 0;
                 tbody.innerHTML += `
                     <tr class="hover:bg-gray-50">
                         <td class="p-4">${data.name}</td>
                         <td class="p-4">${data.date}</td>
                         <td class="p-4">${data.location}</td>
-                        <td class="p-4">
-                            <button onclick="deleteEvent('${child.key}')" class="text-red-600 hover:text-red-800 p-2"><i class="fas fa-trash"></i></button>
+                        <td class="p-4 text-sm text-gray-500">${slotsCount} créneau(x)</td>
+                        <td class="p-4 flex gap-3">
+                            <button onclick="openSlotsModal('${id}')" class="text-green-600 hover:text-green-800" title="Gérer les créneaux"><i class="fas fa-clock"></i></button>
+                            <button onclick="editEvent('${id}')" class="text-blue-600 hover:text-blue-800" title="Modifier"><i class="fas fa-pen"></i></button>
+                            <button onclick="deleteEvent('${id}')" class="text-red-600 hover:text-red-800" title="Supprimer"><i class="fas fa-trash"></i></button>
                         </td>
                     </tr>`;
-            });
+            }
+            // Si la modale des créneaux est ouverte, on la met à jour en direct
+            if(!document.getElementById('slotsModal').classList.contains('hidden')) {
+                renderSlotsList(document.getElementById('slotEventId').value);
+            }
         });
 
-        // Écoute des examens
         db.ref('exams').on('value', (snapshot) => {
+            localExams = snapshot.val() || {};
             const tbody = document.getElementById('examsList');
             tbody.innerHTML = '';
-            snapshot.forEach((child) => {
-                const data = child.val();
+            for (let id in localExams) {
+                const data = localExams[id];
                 tbody.innerHTML += `
                     <tr class="hover:bg-gray-50">
                         <td class="p-4 font-medium">${data.subject}</td>
                         <td class="p-4">${data.date.replace('T', ' à ')}</td>
                         <td class="p-4"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">${data.promo}</span></td>
-                        <td class="p-4">
-                            <button onclick="deleteExam('${child.key}')" class="text-red-600 hover:text-red-800 p-2"><i class="fas fa-trash"></i></button>
+                        <td class="p-4 flex gap-3">
+                            <button onclick="editExam('${id}')" class="text-blue-600 hover:text-blue-800"><i class="fas fa-pen"></i></button>
+                            <button onclick="deleteExam('${id}')" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
                         </td>
                     </tr>`;
-            });
+            }
+            // Met à jour le calendrier si activé
+            if(calendarInstance) {
+                calendarInstance.removeAllEvents();
+                calendarInstance.addEventSource(getCalendarEvents());
+            }
         });
 
-        // Écoute des participants
         db.ref('participants').on('value', (snapshot) => {
+            localParticipants = snapshot.val() || {};
             const tbody = document.getElementById('participantsList');
             tbody.innerHTML = '';
-            snapshot.forEach((child) => {
-                const data = child.val();
+            for (let id in localParticipants) {
+                const data = localParticipants[id];
                 tbody.innerHTML += `
                     <tr class="hover:bg-gray-50">
                         <td class="p-4">${data.name}</td>
                         <td class="p-4">${data.promo}</td>
                         <td class="p-4">${data.phone}</td>
                         <td class="p-4">${data.event}</td>
-                        <td class="p-4">
-                            <button onclick="deleteParticipant('${child.key}')" class="text-red-600 hover:text-red-800 p-2"><i class="fas fa-trash"></i></button>
+                        <td class="p-4 flex gap-3">
+                            <button onclick="editParticipant('${id}')" class="text-blue-600 hover:text-blue-800"><i class="fas fa-pen"></i></button>
+                            <button onclick="deleteParticipant('${id}')" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
                         </td>
                     </tr>`;
-            });
+            }
         });
     </script>
 </body>
