@@ -151,15 +151,19 @@
             <!-- Formulaire d'ajout -->
             <div class="bg-gray-50 p-4 rounded mb-6 border">
                 <h3 class="font-semibold mb-2 text-sm">Ajouter un créneau</h3>
-                <div class="flex flex-col md:flex-row gap-2">
-                    <select id="slotType" class="border rounded p-2 flex-1">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <select id="slotType" class="border rounded p-2 w-full">
                         <option value="Prévente">Prévente</option>
                         <option value="Entrée">Entrée (Portes)</option>
                     </select>
-                    <input type="time" id="slotStart" class="border rounded p-2 flex-1" title="Heure de début">
-                    <input type="time" id="slotEnd" class="border rounded p-2 flex-1" title="Heure de fin">
-                    <button onclick="saveSlot()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700">Ajouter</button>
+                    <input type="date" id="slotDate" class="border rounded p-2 w-full" title="Date du créneau">
+                    <input type="time" id="slotStart" class="border rounded p-2 w-full" title="Heure de début">
+                    <div class="flex gap-2">
+                        <input type="time" id="slotEnd" class="border rounded p-2 w-full" title="Heure de fin">
+                        <button onclick="saveSlot()" class="bg-green-600 text-white px-4 rounded shadow hover:bg-green-700" title="Ajouter"><i class="fas fa-check"></i></button>
+                    </div>
                 </div>
+                <p id="slotErrorMsg" class="text-red-500 text-xs mt-2 hidden">Veuillez remplir la date et les horaires.</p>
             </div>
 
             <!-- Liste des créneaux -->
@@ -191,7 +195,6 @@
                     <input type="datetime-local" id="examDate" class="w-full border rounded p-2">
                 </div>
                 <div>
-                    <!-- CHAMP TEXTE AU LIEU DU MENU DÉROULANT -->
                     <label class="block text-sm font-medium mb-1">Promo(s) concernée(s)</label>
                     <input type="text" id="examPromo" class="w-full border rounded p-2" placeholder="Ex: MG1, Dentaire 2A...">
                 </div>
@@ -214,7 +217,6 @@
                     <input type="text" id="partName" class="w-full border rounded p-2" placeholder="Jean Dupont">
                 </div>
                 <div>
-                    <!-- CHAMP TEXTE AU LIEU DU MENU DÉROULANT -->
                     <label class="block text-sm font-medium mb-1">Promo</label>
                     <input type="text" id="partPromo" class="w-full border rounded p-2" placeholder="Ex: MG1">
                 </div>
@@ -385,6 +387,9 @@
             const ev = localEvents[id];
             document.getElementById('slotEventId').value = id;
             document.getElementById('slotsModalTitle').innerText = "Créneaux : " + ev.name;
+            // On pré-remplit la date du créneau avec la date de l'événement par défaut
+            if(ev.date) document.getElementById('slotDate').value = ev.date;
+            document.getElementById('slotErrorMsg').classList.add('hidden');
             renderSlotsList(id);
             openModal('slotsModal');
         }
@@ -393,13 +398,19 @@
             const slotId = Date.now().toString();
             const data = {
                 type: document.getElementById('slotType').value,
+                date: document.getElementById('slotDate').value,
                 start: document.getElementById('slotStart').value,
                 end: document.getElementById('slotEnd').value
             };
-            if(data.start && data.end) {
+            
+            if(data.date && data.start && data.end) {
                 db.ref(`events/${eventId}/slots/${slotId}`).set(data);
+                document.getElementById('slotErrorMsg').classList.add('hidden');
+                // On garde la date mais on efface les heures pour faciliter l'enchaînement
                 document.getElementById('slotStart').value = '';
                 document.getElementById('slotEnd').value = '';
+            } else {
+                document.getElementById('slotErrorMsg').classList.remove('hidden');
             }
         }
         function deleteSlot(eventId, slotId) {
@@ -417,10 +428,18 @@
 
             for(let slotId in slots) {
                 const s = slots[slotId];
+                
+                // Formatage de la date en JJ/MM/AAAA
+                let dateAffichee = s.date;
+                if(s.date) {
+                    const [y, m, d] = s.date.split('-');
+                    dateAffichee = `${d}/${m}/${y}`;
+                }
+                
                 slotsContainer.innerHTML += `
-                    <li class="flex justify-between items-center bg-white p-2 rounded border">
-                        <span><strong>${s.type}</strong> : ${s.start} - ${s.end}</span>
-                        <button onclick="deleteSlot('${eventId}', '${slotId}')" class="text-red-600 hover:text-red-800"><i class="fas fa-times"></i></button>
+                    <li class="flex flex-col md:flex-row justify-between md:items-center bg-white p-2 rounded border">
+                        <span class="text-sm"><strong>${s.type}</strong> le ${dateAffichee} : <br class="md:hidden">de ${s.start} à ${s.end}</span>
+                        <button onclick="deleteSlot('${eventId}', '${slotId}')" class="text-red-600 hover:text-red-800 mt-2 md:mt-0 self-end md:self-auto"><i class="fas fa-times"></i></button>
                     </li>`;
             }
         }
