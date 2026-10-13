@@ -47,11 +47,12 @@
                             <th class="p-4">Date</th>
                             <th class="p-4">Lieu</th>
                             <th class="p-4">Créneaux</th>
+                            <th class="p-4">Inscrits</th>
                             <th class="p-4">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="eventsList" class="divide-y">
-                        <!-- Rempli par Firebase -->
+                        <!-- Rempli dynamiquement -->
                     </tbody>
                 </table>
             </div>
@@ -93,9 +94,17 @@
 
         <!-- ONGLET PARTICIPANTS -->
         <div id="participants-tab" class="tab-content hidden">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h1 class="text-2xl font-bold text-gray-800">Liste des Entrées</h1>
-                <button onclick="openModal('participantModal')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"><i class="fas fa-plus mr-2"></i> Ajouter</button>
+                <div class="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                    <select id="filterEvent" onchange="renderParticipants()" class="border rounded p-2 bg-white shadow-sm w-full md:w-auto min-w-[200px]">
+                        <option value="ALL">Tous les événements</option>
+                    </select>
+                    <!-- COMPTEUR D'INSCRITS FILTRÉ -->
+                    <span id="participantsCountDisplay" class="text-sm font-semibold text-blue-800 bg-blue-100 px-3 py-1 rounded-full hidden whitespace-nowrap"></span>
+                    
+                    <button onclick="openModal('participantModal')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 w-full md:w-auto whitespace-nowrap"><i class="fas fa-plus mr-2"></i> Ajouter</button>
+                </div>
             </div>
             <div class="bg-white rounded-lg shadow overflow-x-auto">
                 <table class="w-full text-left whitespace-nowrap">
@@ -148,7 +157,6 @@
             <h2 class="text-xl font-bold mb-4" id="slotsModalTitle">Gérer les créneaux</h2>
             <input type="hidden" id="slotEventId">
             
-            <!-- Formulaire d'ajout -->
             <div class="bg-gray-50 p-4 rounded mb-6 border">
                 <h3 class="font-semibold mb-2 text-sm">Ajouter un créneau</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -166,7 +174,6 @@
                 <p id="slotErrorMsg" class="text-red-500 text-xs mt-2 hidden">Veuillez remplir la date et les horaires.</p>
             </div>
 
-            <!-- Liste des créneaux -->
             <div>
                 <h3 class="font-semibold mb-2 text-sm">Créneaux actuels et responsables :</h3>
                 <ul id="slotsList" class="space-y-3">
@@ -228,7 +235,6 @@
                     <label class="block text-sm font-medium mb-1">Événement ciblé</label>
                     <select id="partEvent" class="w-full border rounded p-2">
                         <option value="">Sélectionnez un événement...</option>
-                        <!-- Rempli dynamiquement par Firebase -->
                     </select>
                 </div>
                 <div class="flex justify-end gap-2 mt-6">
@@ -280,9 +286,7 @@
                 }
             });
 
-            if(tabName === 'agenda') {
-                setTimeout(initCalendar, 100);
-            }
+            if(tabName === 'agenda') setTimeout(initCalendar, 100);
         }
 
         // --- GESTION VUES AGENDA ---
@@ -362,7 +366,7 @@
             if(eventSelect) eventSelect.value = '';
         }
 
-        // --- 4. CRUD EVENEMENTS ---
+        // --- 4. CRUD EVENEMENTS ET CRENEAUX ---
         function saveEvent() {
             const id = document.getElementById('eventId').value || Date.now().toString();
             const data = {
@@ -385,7 +389,6 @@
             if(confirm('Supprimer cet événement définitivement ?')) db.ref('events/' + id).remove();
         }
 
-        // --- GESTION DES CRÉNEAUX ET STAFF ---
         function openSlotsModal(id) {
             const ev = localEvents[id];
             document.getElementById('slotEventId').value = id;
@@ -418,7 +421,6 @@
             if(confirm('Supprimer ce créneau ?')) db.ref(`events/${eventId}/slots/${slotId}`).remove();
         }
 
-        // Ajouter un responsable à un créneau
         function addVolunteer(eventId, slotId) {
             const input = document.getElementById(`volInput_${slotId}`);
             const name = input.value.trim();
@@ -449,7 +451,6 @@
                     dateAffichee = `${d}/${m}/${y}`;
                 }
                 
-                // Affichage des responsables du créneau
                 const vols = s.volunteers || {};
                 let volsHTML = '';
                 for(let volId in vols) {
@@ -474,6 +475,95 @@
                             </div>
                         </div>
                     </li>`;
+            }
+        }
+
+        // --- FONCTIONS MUTUALISÉES DE RENDU ---
+        
+        function renderEventsTable() {
+            const tbody = document.getElementById('eventsList');
+            const eventSelect = document.getElementById('partEvent');
+            const filterSelect = document.getElementById('filterEvent');
+            
+            const currentSelectedEvent = eventSelect.value;
+            const currentFilterEvent = filterSelect.value;
+            
+            tbody.innerHTML = '';
+            eventSelect.innerHTML = '<option value="">Sélectionnez un événement...</option>'; 
+            filterSelect.innerHTML = '<option value="ALL">Tous les événements</option>'; 
+            
+            for (let id in localEvents) {
+                const data = localEvents[id];
+                const slotsCount = data.slots ? Object.keys(data.slots).length : 0;
+                
+                // Calcul du nombre de participants inscrits à cet événement
+                let participantsCount = 0;
+                for (let pId in localParticipants) {
+                    if (localParticipants[pId].event === data.name) {
+                        participantsCount++;
+                    }
+                }
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-4 font-semibold text-gray-800">${data.name}</td>
+                        <td class="p-4">${data.date}</td>
+                        <td class="p-4">${data.location}</td>
+                        <td class="p-4 text-sm text-gray-500">${slotsCount} créneau(x)</td>
+                        <td class="p-4 text-blue-600 font-bold">${participantsCount}</td>
+                        <td class="p-4 flex gap-3">
+                            <button onclick="openSlotsModal('${id}')" class="text-green-600 hover:text-green-800" title="Gérer créneaux & staff"><i class="fas fa-clock"></i></button>
+                            <button onclick="editEvent('${id}')" class="text-blue-600 hover:text-blue-800" title="Modifier"><i class="fas fa-pen"></i></button>
+                            <button onclick="deleteEvent('${id}')" class="text-red-600 hover:text-red-800" title="Supprimer"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+                
+                if (data.name) {
+                    eventSelect.innerHTML += `<option value="${data.name}">${data.name}</option>`;
+                    filterSelect.innerHTML += `<option value="${data.name}">${data.name}</option>`;
+                }
+            }
+            
+            if (currentSelectedEvent && Array.from(eventSelect.options).some(opt => opt.value === currentSelectedEvent)) {
+                eventSelect.value = currentSelectedEvent;
+            }
+            if (currentFilterEvent && Array.from(filterSelect.options).some(opt => opt.value === currentFilterEvent)) {
+                filterSelect.value = currentFilterEvent;
+            }
+        }
+
+        function renderParticipants() {
+            const tbody = document.getElementById('participantsList');
+            const filterValue = document.getElementById('filterEvent').value;
+            const countDisplay = document.getElementById('participantsCountDisplay');
+            tbody.innerHTML = '';
+            
+            let displayCount = 0;
+            
+            for (let id in localParticipants) {
+                const data = localParticipants[id];
+                if (filterValue === 'ALL' || data.event === filterValue) {
+                    displayCount++;
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-4">${data.name}</td>
+                            <td class="p-4">${data.promo}</td>
+                            <td class="p-4">${data.phone}</td>
+                            <td class="p-4">${data.event}</td>
+                            <td class="p-4 flex gap-3">
+                                <button onclick="editParticipant('${id}')" class="text-blue-600 hover:text-blue-800"><i class="fas fa-pen"></i></button>
+                                <button onclick="deleteParticipant('${id}')" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>`;
+                }
+            }
+            
+            // Mise à jour du badge de comptage dans l'onglet participants
+            if (filterValue !== 'ALL') {
+                countDisplay.textContent = `${displayCount} inscrit(s)`;
+                countDisplay.classList.remove('hidden');
+            } else {
+                countDisplay.classList.add('hidden');
             }
         }
 
@@ -532,42 +622,18 @@
         // --- 7. ECOUTEURS FIREBASE ---
         db.ref('events').on('value', (snapshot) => {
             localEvents = snapshot.val() || {};
-            const tbody = document.getElementById('eventsList');
-            const eventSelect = document.getElementById('partEvent');
-            const currentSelectedEvent = eventSelect.value;
+            renderEventsTable();
             
-            tbody.innerHTML = '';
-            eventSelect.innerHTML = '<option value="">Sélectionnez un événement...</option>'; 
-            
-            for (let id in localEvents) {
-                const data = localEvents[id];
-                const slotsCount = data.slots ? Object.keys(data.slots).length : 0;
-                
-                tbody.innerHTML += `
-                    <tr class="hover:bg-gray-50">
-                        <td class="p-4">${data.name}</td>
-                        <td class="p-4">${data.date}</td>
-                        <td class="p-4">${data.location}</td>
-                        <td class="p-4 text-sm text-gray-500">${slotsCount} créneau(x)</td>
-                        <td class="p-4 flex gap-3">
-                            <button onclick="openSlotsModal('${id}')" class="text-green-600 hover:text-green-800" title="Gérer créneaux & staff"><i class="fas fa-clock"></i></button>
-                            <button onclick="editEvent('${id}')" class="text-blue-600 hover:text-blue-800" title="Modifier"><i class="fas fa-pen"></i></button>
-                            <button onclick="deleteEvent('${id}')" class="text-red-600 hover:text-red-800" title="Supprimer"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>`;
-                
-                if (data.name) {
-                    eventSelect.innerHTML += `<option value="${data.name}">${data.name}</option>`;
-                }
-            }
-            
-            if (currentSelectedEvent && Array.from(eventSelect.options).some(opt => opt.value === currentSelectedEvent)) {
-                eventSelect.value = currentSelectedEvent;
-            }
-
             if(!document.getElementById('slotsModal').classList.contains('hidden')) {
                 renderSlotsList(document.getElementById('slotEventId').value);
             }
+            renderParticipants(); // Re-filtre si on supprime/modifie un event
+        });
+
+        db.ref('participants').on('value', (snapshot) => {
+            localParticipants = snapshot.val() || {};
+            renderParticipants();
+            renderEventsTable(); // Met à jour le compteur d'inscrits dans le tableau événements
         });
 
         db.ref('exams').on('value', (snapshot) => {
@@ -590,26 +656,6 @@
             if(calendarInstance) {
                 calendarInstance.removeAllEvents();
                 calendarInstance.addEventSource(getCalendarEvents());
-            }
-        });
-
-        db.ref('participants').on('value', (snapshot) => {
-            localParticipants = snapshot.val() || {};
-            const tbody = document.getElementById('participantsList');
-            tbody.innerHTML = '';
-            for (let id in localParticipants) {
-                const data = localParticipants[id];
-                tbody.innerHTML += `
-                    <tr class="hover:bg-gray-50">
-                        <td class="p-4">${data.name}</td>
-                        <td class="p-4">${data.promo}</td>
-                        <td class="p-4">${data.phone}</td>
-                        <td class="p-4">${data.event}</td>
-                        <td class="p-4 flex gap-3">
-                            <button onclick="editParticipant('${id}')" class="text-blue-600 hover:text-blue-800"><i class="fas fa-pen"></i></button>
-                            <button onclick="deleteParticipant('${id}')" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
-                        </td>
-                    </tr>`;
             }
         });
     </script>
